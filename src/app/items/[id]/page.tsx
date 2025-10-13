@@ -1,8 +1,10 @@
 import { Suspense } from 'react';
+import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import ItemDetail from '@/components/pages/ItemDetail';
+import { itemApi } from '@/lib/api';
 
 interface ItemDetailPageProps {
   params: {
@@ -10,11 +12,42 @@ interface ItemDetailPageProps {
   };
 }
 
-export async function generateMetadata({ params }: ItemDetailPageProps) {
-  return {
-    title: `产品详情 - Taklip`,
-    description: '产品详细信息',
-  };
+export async function generateMetadata({ params }: ItemDetailPageProps): Promise<Metadata> {
+  try {
+    const response = await itemApi.getById(Number(params.id));
+    const item = response.data;
+
+    return {
+      title: `${item.name} - 产品详情 - Taklip`,
+      description: item.description || `查看 ${item.name} 的详细信息、评分和用户评价`,
+      keywords: `${item.name}, 产品, ${item.brand?.name || ''}`,
+      openGraph: {
+        title: item.name,
+        description: item.description || `查看 ${item.name} 的详细信息`,
+        images: item.imagePath ? [
+          {
+            url: `http://www.taklip.com${item.imagePath}`,
+            width: 1200,
+            height: 630,
+            alt: item.name,
+          }
+        ] : [],
+        type: 'article',
+        siteName: 'Taklip',
+      },
+      twitter: {
+        card: 'summary_large_image',
+        title: item.name,
+        description: item.description || `查看 ${item.name} 的详细信息`,
+        images: item.imagePath ? [`http://www.taklip.com${item.imagePath}`] : [],
+      },
+    };
+  } catch (error) {
+    return {
+      title: '产品详情 - Taklip',
+      description: '产品详细信息',
+    };
+  }
 }
 
 export default function ItemDetailPage({ params }: ItemDetailPageProps) {

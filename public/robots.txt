@@ -1,0 +1,13 @@
+# Allow all crawlers
+User-agent: *
+Allow: /
+
+# Disallow certain paths
+Disallow: /api/
+Disallow: /settings
+Disallow: /profile
+Disallow: /test-auth
+
+# Sitemap
+Sitemap: http://www.taklip.com/sitemap.xml
+

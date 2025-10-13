@@ -33,6 +33,7 @@ export interface ContentDTO {
 export interface UserDTO {
   id: number;
   username: string;
+  email: string;
   profilePhotoSmall: string;
   createTime: string;
   updateTime: string;
@@ -132,9 +133,8 @@ export interface ContactUs {
 
 export interface PostDTO {
   id: number;
-  title: string;
-  content: string;
-  author: UserDTO;
+  // title: string;
+  description: string;
   createTime: string;
   updateTime: string;
 }
@@ -161,4 +161,23 @@ export interface ApiError {
   error: string;
   timestamp: string;
   path: string;
+}
+
+// Authentication Types
+export interface AuthResponse {
+  accessToken: string;
+  refreshToken: string;
+  tokenType: string;
+  expiresIn: number;
+  user: UserDTO;
+  error?: string;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface RefreshTokenRequest {
+  refreshToken: string;
 }

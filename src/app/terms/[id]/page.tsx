@@ -1,8 +1,10 @@
 import { Suspense } from 'react';
+import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import TermDetail from '@/components/pages/TermDetail';
+import { termApi } from '@/lib/api';
 
 interface TermDetailPageProps {
   params: {
@@ -10,11 +12,33 @@ interface TermDetailPageProps {
   };
 }
 
-export async function generateMetadata({ params }: TermDetailPageProps) {
-  return {
-    title: `词条详情 - Taklip`,
-    description: '专业词汇解释详情',
-  };
+export async function generateMetadata({ params }: TermDetailPageProps): Promise<Metadata> {
+  try {
+    const response = await termApi.getById(Number(params.id));
+    const term = response.data;
+
+    return {
+      title: `${term.name} - 词条详情 - Taklip`,
+      description: term.description || `了解 ${term.name} 的专业解释和相关信息`,
+      keywords: `${term.name}, 词条, 专业词汇`,
+      openGraph: {
+        title: term.name,
+        description: term.description || `了解 ${term.name} 的专业解释`,
+        type: 'article',
+        siteName: 'Taklip',
+      },
+      twitter: {
+        card: 'summary_large_image',
+        title: term.name,
+        description: term.description || `了解 ${term.name} 的专业解释`,
+      },
+    };
+  } catch (error) {
+    return {
+      title: '词条详情 - Taklip',
+      description: '专业词汇解释详情',
+    };
+  }
 }
 
 export default function TermDetailPage({ params }: TermDetailPageProps) {

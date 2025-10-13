@@ -41,6 +41,21 @@ export function formatDate(dateString: string): string {
 }
 
 /**
+ * Format date to Chinese locale
+ */
+export function formatDateTime(dateString: string): string {
+  return new Date(dateString).toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  }).replace(/\//g, '-').replace(/(\d{4})-(\d{2})-(\d{2}),\s?(\d{2}):(\d{2}):(\d{2})/, '$1-$2-$3 $4:$5:$6');
+}
+
+/**
  * Truncate text to specified length
  */
 export function truncateText(text: string, maxLength: number): string {

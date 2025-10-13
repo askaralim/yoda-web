@@ -8,7 +8,6 @@ import TopItems from '@/components/sections/TopItems';
 //import ContentDisplay from '@/components/sections/ContentDisplay';
 
 export default function Home() {
-  console.log('Home page rendered');
   
   return (
     <div className="min-h-screen bg-white">

@@ -1,8 +1,10 @@
 import { Suspense } from 'react';
+import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import SolutionDetail from '@/components/pages/SolutionDetail';
+import { solutionApi } from '@/lib/api';
 
 interface SolutionDetailPageProps {
   params: {
@@ -10,11 +12,42 @@ interface SolutionDetailPageProps {
   };
 }
 
-export async function generateMetadata({ params }: SolutionDetailPageProps) {
-  return {
-    title: `解决方案详情 - Taklip`,
-    description: '专业的产品解决方案详情',
-  };
+export async function generateMetadata({ params }: SolutionDetailPageProps): Promise<Metadata> {
+  try {
+    const response = await solutionApi.getById(Number(params.id));
+    const solution = response.data;
+
+    return {
+      title: `${solution.title} - 解决方案 - Taklip`,
+      description: solution.description || `了解 ${solution.title} 的专业解决方案`,
+      keywords: `${solution.title}, 解决方案, 产品方案`,
+      openGraph: {
+        title: solution.title,
+        description: solution.description || `了解 ${solution.title} 的专业解决方案`,
+        images: solution.imagePath ? [
+          {
+            url: `http://www.taklip.com${solution.imagePath}`,
+            width: 1200,
+            height: 630,
+            alt: solution.title,
+          }
+        ] : [],
+        type: 'article',
+        siteName: 'Taklip',
+      },
+      twitter: {
+        card: 'summary_large_image',
+        title: solution.title,
+        description: solution.description || `了解 ${solution.title} 的专业解决方案`,
+        images: solution.imagePath ? [`http://www.taklip.com${solution.imagePath}`] : [],
+      },
+    };
+  } catch (error) {
+    return {
+      title: '解决方案详情 - Taklip',
+      description: '专业的产品解决方案详情',
+    };
+  }
 }
 
 export default function SolutionDetailPage({ params }: SolutionDetailPageProps) {

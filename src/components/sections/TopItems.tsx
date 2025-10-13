@@ -12,14 +12,11 @@ interface TopItemsProps {
 }
 
 const TopItems = ({ initialItems = [] }: TopItemsProps) => {
-  console.log('TopItems component rendered');
   
   const { data, isLoading, error } = useQuery({
     queryKey: ['top-items'],
     queryFn: async () => {
-      console.log('Fetching top items...');
       const response = await itemApi.getTopItems();
-      console.log('Top items response:', response.data);
       return response.data;
     },
     initialData: initialItems,

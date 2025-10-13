@@ -1,4 +1,5 @@
 import axios, { AxiosResponse } from 'axios';
+import { logger } from './logger';
 import { 
   ContentDTO, 
   BrandDTO, 
@@ -9,11 +10,14 @@ import {
   PostDTO, 
   TermDTO,
   PageResponse,
-  ApiError 
+  ApiError,
+  AuthResponse,
+  LoginRequest,
+  RefreshTokenRequest
 } from '@/types';
 
 const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081/api/v1';
-console.log('API Base URL:', baseURL);
+
 
 const api = axios.create({
   baseURL,
@@ -26,34 +30,99 @@ const api = axios.create({
 // Request interceptor
 api.interceptors.request.use(
   (config) => {
-    console.log('API Request:', config.method?.toUpperCase(), config.url);
-    const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    // Only add auth header for specific endpoints that require authentication
+    const authRequiredEndpoints = [
+      '/auth/',
+      '/user/',
+      '/content/rate',
+      '/content/comments',
+      '/item/rating',
+      '/post'
+    ];
+    
+    // Check if this endpoint requires authentication
+    const needsAuth = authRequiredEndpoints.some(endpoint => config.url?.includes(endpoint));
+    
+    if (needsAuth) {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      } else {
+      }
     }
+    
     return config;
   },
   (error) => {
-    console.log('API Request Error:', error);
     return Promise.reject(error);
   }
 );
 
-// Response interceptor
+// Response interceptor with JWT refresh logic
 api.interceptors.response.use(
   (response) => {
-    console.log('API Response:', response.status, response.config.url);
     return response;
   },
-  (error) => {
-    console.log('API Response Error:', error.response?.status, error.config?.url, error.message);
-    if (error.response?.status === 401) {
-      // Handle unauthorized
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('authToken');
-        window.location.href = '/login';
+  async (error) => {
+    
+    const originalRequest = error.config;
+    
+    // Only handle 401 errors for authenticated endpoints
+    const authRequiredEndpoints = [
+      '/auth/',
+      '/user/',
+      '/content/rate',
+      '/content/comments',
+      '/item/rating',
+      '/post'
+    ];
+    
+    const isAuthEndpoint = authRequiredEndpoints.some(endpoint => originalRequest.url?.includes(endpoint));
+    
+    // Don't retry refresh token requests to prevent infinite loops
+    if (originalRequest.url?.includes('/auth/refresh')) {
+      return Promise.reject(error);
+    }
+    
+    if (error.response?.status === 401 && !originalRequest._retry && isAuthEndpoint) {
+      originalRequest._retry = true;
+      
+      try {
+        const refreshToken = typeof window !== 'undefined' ? localStorage.getItem('refreshToken') : null;
+        
+        if (refreshToken) {
+          const response = await api.post('/auth/refresh', { refreshToken });
+          const { accessToken } = response.data;
+          
+          // Update the token in localStorage
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('authToken', accessToken);
+          }
+          
+          // Retry the original request with new token
+          originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+          return api(originalRequest);
+        } else {
+          // No refresh token, redirect to login
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('refreshToken');
+            window.location.href = '/login';
+          }
+        }
+      } catch (refreshError) {
+        // Refresh failed, redirect to login
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('refreshToken');
+          window.location.href = '/login';
+        }
+        // Don't retry the original request if refresh failed
+        return Promise.reject(refreshError);
       }
     }
+    
     return Promise.reject(error);
   }
 );
@@ -95,7 +164,6 @@ export const brandApi = {
     }),
   
   getTopBrands: (): Promise<AxiosResponse<BrandDTO[]>> => {
-    console.log('API: Calling /brand/topBrands');
     return api.get('/brand/topBrands');
   },
   
@@ -116,7 +184,6 @@ export const itemApi = {
     }),
   
   getTopItems: (): Promise<AxiosResponse<ItemDTO[]>> => {
-    console.log('API: Calling /item/topItems');
     return api.get('/item/topItems');
   },
   
@@ -143,8 +210,11 @@ export const userApi = {
     api.get(`/user/${id}/contents`, { 
       params: { offset, limit } 
     }),
+
+  update: (id: number, userData: UserDTO): Promise<AxiosResponse<UserDTO>> =>
+    api.put(`/user/${id}`, userData),
   
-  register: (userData: any): Promise<AxiosResponse<UserDTO>> =>
+  register: (userData: { username: string; email: string; password: string }): Promise<AxiosResponse<UserDTO>> =>
     api.post('/user/register', userData),
   
   follow: (userId: number, loginUserId: number): Promise<AxiosResponse<void>> =>
@@ -168,7 +238,7 @@ export const solutionApi = {
   getById: (id: number): Promise<AxiosResponse<SolutionDTO>> =>
     api.get(`/solution/${id}`),
   
-  getSolutionItems: (solutionId: number): Promise<AxiosResponse<any[]>> =>
+  getSolutionItems: (solutionId: number): Promise<AxiosResponse<unknown[]>> =>
     api.get(`/solution/${solutionId}/solutionItems`),
 };
 
@@ -182,11 +252,11 @@ export const postApi = {
   getById: (id: number): Promise<AxiosResponse<PostDTO>> =>
     api.get(`/post/${id}`),
   
-  create: (postData: PostDTO): Promise<AxiosResponse<PostDTO>> =>
-    api.post('/post', postData),
+  create: (description: string): Promise<AxiosResponse<PostDTO>> =>
+    api.post('/post', { description }),
   
-  update: (id: number, postData: PostDTO): Promise<AxiosResponse<PostDTO>> =>
-    api.put(`/post/${id}`, postData),
+  update: (id: number, description: string): Promise<AxiosResponse<PostDTO>> =>
+    api.put(`/post/${id}`, { description }),
 };
 
 // Term API
@@ -209,6 +279,24 @@ export const contactApi = {
     description: string;
   }): Promise<AxiosResponse<{ success: boolean; description: string }>> =>
     api.post('/contactus', contactData),
+};
+
+// Authentication API
+export const authApi = {
+  login: (credentials: LoginRequest): Promise<AxiosResponse<AuthResponse>> =>
+    api.post('/auth/login', credentials),
+  
+  register: (userData: { username: string; email: string; password: string }): Promise<AxiosResponse<{ message: string }>> =>
+    api.post('/auth/register', userData),
+  
+  refresh: (refreshToken: string): Promise<AxiosResponse<AuthResponse>> =>
+    api.post('/auth/refresh', { refreshToken }),
+  
+  logout: (): Promise<AxiosResponse<{ message: string }>> =>
+    api.post('/auth/logout'),
+  
+  getCurrentUser: (): Promise<AxiosResponse<UserDTO>> =>
+    api.get('/auth/me'),
 };
 
 export default api;

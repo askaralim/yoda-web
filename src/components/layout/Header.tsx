@@ -3,9 +3,12 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { motion } from 'framer-motion';
+import { useAuth } from '@/hooks/useAuth';
+import UserDropdown from '@/components/auth/UserDropdown';
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { isAuthenticated } = useAuth();
 
   const navigationItems = [
     { href: '/', label: '主页' },
@@ -13,7 +16,6 @@ const Header = () => {
     { href: '/terms', label: '词条' },
     { href: '/solutions', label: '解决方案' },
     { href: '/contact', label: '联系我们' },
-    { href: '/login', label: '登陆' },
   ];
 
   return (
@@ -26,7 +28,7 @@ const Header = () => {
           </Link>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex space-x-8">
+          <nav className="hidden md:flex items-center space-x-8">
             {navigationItems.map((item) => (
               <Link
                 key={item.href}
@@ -36,6 +38,28 @@ const Header = () => {
                 {item.label}
               </Link>
             ))}
+            
+            {/* Authentication Section */}
+            <div className="ml-4 flex items-center space-x-4">
+              {isAuthenticated ? (
+                <UserDropdown />
+              ) : (
+                <>
+                  <Link
+                    href="/login"
+                    className="text-white hover:text-blue-300 transition-colors duration-200"
+                  >
+                    登陆
+                  </Link>
+                  <Link
+                    href="/register"
+                    className="text-white hover:text-blue-300 transition-colors duration-200"
+                  >
+                    注册
+                  </Link>
+                </>
+              )}
+            </div>
           </nav>
 
           {/* Mobile Menu Button */}
@@ -78,6 +102,30 @@ const Header = () => {
                   {item.label}
                 </Link>
               ))}
+              
+              {/* Mobile Authentication */}
+              <div className="pt-4 border-t border-gray-600 space-y-2">
+                {isAuthenticated ? (
+                  <UserDropdown />
+                ) : (
+                  <>
+                    <Link
+                      href="/login"
+                      className="text-white hover:text-blue-300 transition-colors duration-200 py-2 block"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      登陆
+                    </Link>
+                    <Link
+                      href="/register"
+                      className="text-white hover:text-blue-300 transition-colors duration-200 py-2 block"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      注册
+                    </Link>
+                  </>
+                )}
+              </div>
             </div>
           </motion.nav>
         )}

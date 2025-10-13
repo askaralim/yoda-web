@@ -1,8 +1,10 @@
 import { Suspense } from 'react';
+import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import BrandDetail from '@/components/pages/BrandDetail';
+import { brandApi } from '@/lib/api';
 
 interface BrandDetailPageProps {
   params: {
@@ -10,11 +12,42 @@ interface BrandDetailPageProps {
   };
 }
 
-export async function generateMetadata({ params }: BrandDetailPageProps) {
-  return {
-    title: `品牌详情 - Taklip`,
-    description: '品牌详细信息',
-  };
+export async function generateMetadata({ params }: BrandDetailPageProps): Promise<Metadata> {
+  try {
+    const response = await brandApi.getById(Number(params.id));
+    const brand = response.data;
+
+    return {
+      title: `${brand.name} - 品牌详情 - Taklip`,
+      description: brand.description || `探索 ${brand.name} 品牌的产品和详细信息`,
+      keywords: `${brand.name}, 品牌, 产品`,
+      openGraph: {
+        title: brand.name,
+        description: brand.description || `探索 ${brand.name} 品牌`,
+        images: brand.imagePath ? [
+          {
+            url: `http://www.taklip.com${brand.imagePath}`,
+            width: 1200,
+            height: 630,
+            alt: brand.name,
+          }
+        ] : [],
+        type: 'website',
+        siteName: 'Taklip',
+      },
+      twitter: {
+        card: 'summary_large_image',
+        title: brand.name,
+        description: brand.description || `探索 ${brand.name} 品牌`,
+        images: brand.imagePath ? [`http://www.taklip.com${brand.imagePath}`] : [],
+      },
+    };
+  } catch (error) {
+    return {
+      title: '品牌详情 - Taklip',
+      description: '品牌详细信息',
+    };
+  }
 }
 
 export default function BrandDetailPage({ params }: BrandDetailPageProps) {

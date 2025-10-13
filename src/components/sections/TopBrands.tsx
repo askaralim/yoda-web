@@ -12,14 +12,11 @@ interface TopBrandsProps {
 }
 
 const TopBrands = ({ initialBrands = [] }: TopBrandsProps) => {
-  console.log('TopBrands component rendered');
   
   const { data, isLoading, error } = useQuery({
     queryKey: ['top-brands'],
     queryFn: async () => {
-      console.log('Fetching top brands...');
       const response = await brandApi.getTopBrands();
-      console.log('Top brands response:', response.data);
       return response.data;
     },
     initialData: initialBrands,
@@ -27,8 +24,6 @@ const TopBrands = ({ initialBrands = [] }: TopBrandsProps) => {
     staleTime: 0, // Force refetch
     gcTime: 0, // Don't cache
   });
-
-  console.log('TopBrands query state:', { data, isLoading, error });
 
   if (isLoading && !initialBrands.length) {
     return (
