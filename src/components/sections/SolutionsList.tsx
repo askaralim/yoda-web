@@ -6,9 +6,10 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { solutionApi } from '@/lib/api';
 import { getImageUrl, formatDate } from '@/lib/utils';
+import { SolutionDTO } from '@/types';
 
 const SolutionsList = () => {
-  const [allSolutions, setAllSolutions] = useState<any[]>([]);
+  const [allSolutions, setAllSolutions] = useState<SolutionDTO[]>([]);
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);

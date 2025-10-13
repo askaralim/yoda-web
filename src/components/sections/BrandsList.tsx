@@ -6,9 +6,10 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { brandApi } from '@/lib/api';
 import { getImageUrl } from '@/lib/utils';
+import { BrandDTO } from '@/types';
 
 const BrandsList = () => {
-  const [allBrands, setAllBrands] = useState<any[]>([]);
+  const [allBrands, setAllBrands] = useState<BrandDTO[]>([]);
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);

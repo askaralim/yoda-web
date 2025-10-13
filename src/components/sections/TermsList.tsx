@@ -6,9 +6,10 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { termApi } from '@/lib/api';
 import { getImageUrl, formatDate } from '@/lib/utils';
+import { TermDTO } from '@/types';
 
 const TermsList = () => {
-  const [allTerms, setAllTerms] = useState<any[]>([]);
+  const [allTerms, setAllTerms] = useState<TermDTO[]>([]);
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);

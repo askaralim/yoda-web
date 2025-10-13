@@ -33,7 +33,8 @@ export const useAuth = () => {
       router.push('/');
     },
     onError: (error: unknown) => {
-      actions.setError((error as any)?.response?.data?.error || 'Login failed');
+      const errorMessage = (error as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      actions.setError(errorMessage || 'Login failed');
     },
   });
 

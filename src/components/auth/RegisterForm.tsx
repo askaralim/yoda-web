@@ -74,7 +74,8 @@ export default function RegisterForm() {
           router.push('/login?message=Registration successful. Please log in.');
         }
       } catch (err: unknown) {
-        setError((err as any)?.response?.data?.error || 'Registration failed. Please try again.');
+        const errorMessage = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+        setError(errorMessage || 'Registration failed. Please try again.');
       } finally {
         setIsLoading(false);
       }

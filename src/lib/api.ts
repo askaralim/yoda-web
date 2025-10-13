@@ -1,5 +1,4 @@
 import axios, { AxiosResponse } from 'axios';
-import { logger } from './logger';
 import { 
   ContentDTO, 
   BrandDTO, 
@@ -137,7 +136,7 @@ export const contentApi = {
   getById: (id: number): Promise<AxiosResponse<ContentDTO>> =>
     api.get(`/content/${id}`),
   
-  getComments: (id: number, offset: number = 0, limit: number = 10): Promise<AxiosResponse<PageResponse<any>>> =>
+  getComments: (id: number, offset: number = 0, limit: number = 10): Promise<AxiosResponse<PageResponse<CommentDTO>>> =>
     api.get(`/content/${id}/comments`, { 
       params: { offset, limit } 
     }),
@@ -152,7 +151,7 @@ export const contentApi = {
       params: { q: query } 
     }),
   
-  submitComment: (id: number, comment: { description: string; rating?: number }): Promise<AxiosResponse<any>> =>
+  submitComment: (id: number, comment: { description: string; rating?: number }): Promise<AxiosResponse<CommentDTO>> =>
     api.post(`/content/${id}/comments`, comment),
 };
 

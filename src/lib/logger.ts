@@ -11,7 +11,7 @@ interface LogEntry {
   message: string;
   timestamp: string;
   service: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 class Logger {

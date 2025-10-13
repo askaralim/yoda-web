@@ -12,7 +12,7 @@ interface BrandItemsProps {
 }
 
 const BrandItems = ({ brandId }: BrandItemsProps) => {
-  const [allItems, setAllItems] = useState<any[]>([]);
+  const [allItems, setAllItems] = useState<ItemDTO[]>([]);
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
