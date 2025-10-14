@@ -46,6 +46,9 @@ jobs:
           NEXT_PUBLIC_API_URL: http://www.taklip.com/api/v1
           NEXT_PUBLIC_APP_URL: http://www.taklip.com
 
+      - name: Set up QEMU (for multi-platform builds)
+        uses: docker/setup-qemu-action@v3
+        
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -56,11 +59,12 @@ jobs:
           username: ${{ secrets.ALIYUN_ACR_USERNAME }}
           password: ${{ secrets.ALIYUN_ACR_PASSWORD }}
 
-      - name: Build and push Docker image to ACR
+      - name: Build and push multi-platform Docker image to ACR
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG_LATEST }}
           cache-from: type=gha
@@ -82,17 +86,8 @@ jobs:
           username: ${{ secrets.ALIYUN_ECS_USER }}
           key: ${{ secrets.ALIYUN_ECS_SSH_KEY }}
           script: |
-            echo "════════════════════════════════════════════════════════════"
-            echo "🚀 Starting Deployment Process"
-            echo "Time: $(date)"
-            echo "User: $(whoami)"
-            echo "Host: $(hostname)"
-            echo "════════════════════════════════════════════════════════════"
-            
             echo ""
             echo "🔐 Step 1: Logging into ACR..."
-            echo "Registry: ${{ secrets.ALIYUN_ACR_REGISTRY }}"
-            echo "Username: ${{ secrets.ALIYUN_ACR_USERNAME }}"
             if echo "${{ secrets.ALIYUN_ACR_PASSWORD }}" | docker login ${{ secrets.ALIYUN_ACR_REGISTRY }} -u ${{ secrets.ALIYUN_ACR_USERNAME }} --password-stdin; then
               echo "✅ ACR login successful"
             else
