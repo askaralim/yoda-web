@@ -85,13 +85,33 @@ jobs:
           host: ${{ secrets.ALIYUN_ECS_HOST }}
           username: ${{ secrets.ALIYUN_ECS_USER }}
           key: ${{ secrets.ALIYUN_ECS_SSH_KEY }}
+          command_timeout: 30m
           script: |
+            # Function to handle errors
+            error_handler() {
+              local line_no=$1
+              echo ""
+              echo "════════════════════════════════════════════════════════════"
+              echo "❌ ERROR at line $line_no"
+              echo "════════════════════════════════════════════════════════════"
+              echo "Last command failed. Check output above for details."
+              exit 1
+            }
+            
+            trap 'error_handler ${LINENO}' ERR
+            set -e  # Exit on error
+            set -o pipefail  # Catch errors in pipes
+            
+            echo "════════════════════════════════════════════════════════════"
+            echo "🚀 Deployment Started: $(date '+%Y-%m-%d %H:%M:%S')"
+            echo "════════════════════════════════════════════════════════════"
             echo ""
             echo "🔐 Step 1: Logging into ACR..."
-            if echo "${{ secrets.ALIYUN_ACR_PASSWORD }}" | docker login ${{ secrets.ALIYUN_ACR_REGISTRY }} -u ${{ secrets.ALIYUN_ACR_USERNAME }} --password-stdin; then
+            if echo "${{ secrets.ALIYUN_ACR_PASSWORD }}" | docker login ${{ secrets.ALIYUN_ACR_REGISTRY }} -u ${{ secrets.ALIYUN_ACR_USERNAME }} --password-stdin 2>&1 | grep -q "Login Succeeded"; then
               echo "✅ ACR login successful"
             else
               echo "❌ ACR login failed"
+              echo "Error: Unable to authenticate with ACR"
               exit 1
             fi
 
@@ -292,75 +312,37 @@ jobs:
             echo "════════════════════════════════════════════════════════════"
             
             echo ""
-            echo "📊 DIAGNOSTIC INFORMATION:"
+            echo "📊 QUICK DIAGNOSTICS:"
             echo "────────────────────────────────────────────────────────────"
             
-            echo ""
-            echo "1️⃣ Container Status:"
-            docker ps -a | grep yoda-web || echo "❌ No yoda-web container found"
-            
-            echo ""
-            echo "2️⃣ Container Inspection (if exists):"
-            if docker inspect yoda-web >/dev/null 2>&1; then
-              echo "State:"
-              docker inspect yoda-web --format '{{json .State}}' | jq '.' 2>/dev/null || docker inspect yoda-web --format '{{json .State}}'
+            # Container status
+            if docker ps -a --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep yoda-web; then
+              echo "✅ Container found"
+              
+              # Get container logs if exists
               echo ""
-              echo "Network:"
-              docker inspect yoda-web --format '{{json .NetworkSettings.Networks}}' | jq '.' 2>/dev/null || echo "Network info unavailable"
+              echo "📋 Container Logs (last 50 lines):"
+              docker logs yoda-web --tail 50 2>&1 || echo "No logs"
+              
+              # Check if it's running
+              if docker ps --format '{{.Names}}' | grep -q "^yoda-web$"; then
+                echo "✅ Container is running"
+              else
+                echo "❌ Container stopped. Exit code:"
+                docker inspect yoda-web --format '{{.State.ExitCode}}' 2>/dev/null || echo "unknown"
+              fi
             else
-              echo "❌ Container does not exist"
+              echo "❌ No yoda-web container found"
+              echo ""
+              echo "Checking docker-compose.yml:"
+              if [ -f docker-compose.yml ]; then
+                cat docker-compose.yml | grep -A 10 "yoda-web:" || echo "No yoda-web service in compose file"
+              else
+                echo "❌ docker-compose.yml not found in $(pwd)"
+              fi
             fi
             
             echo ""
-            echo "3️⃣ Full Container Logs (last 100 lines):"
-            docker logs yoda-web --tail 100 2>&1 || echo "❌ No logs available"
-            
-            echo ""
-            echo "4️⃣ Docker Compose Configuration:"
-            echo "File location: $(pwd)/docker-compose.yml"
-            if [ -f docker-compose.yml ]; then
-              echo "yoda-web service config:"
-              docker compose config 2>&1 | grep -A 25 "yoda-web:" || cat docker-compose.yml | grep -A 25 "yoda-web:"
-            else
-              echo "❌ docker-compose.yml not found"
-            fi
-            
-            echo ""
-            echo "5️⃣ Network Status:"
-            docker network ls | grep taklip || echo "❌ No taklip networks found"
-            docker network inspect taklip-shared-network 2>&1 | head -30 || echo "Network not found"
-            
-            echo ""
-            echo "6️⃣ Volume Mounts:"
-            docker inspect yoda-web --format '{{json .Mounts}}' 2>&1 | jq '.' 2>/dev/null || echo "No mount info"
-            echo "Uploads directory:"
-            ls -la $HOME/yoda/uploads 2>&1 | head -10 || echo "Directory not found"
-            
-            echo ""
-            echo "7️⃣ Port Status:"
-            netstat -tlnp 2>/dev/null | grep 3000 || ss -tlnp 2>/dev/null | grep 3000 || echo "Port 3000 not in use"
-            
-            echo ""
-            echo "8️⃣ Docker System Info:"
-            docker info 2>&1 | grep -E "Server Version|Storage Driver|Logging Driver|Cgroup|CPUs|Total Memory" || echo "Docker info unavailable"
-            
-            echo ""
-            echo "9️⃣ Recent Docker Events:"
-            docker events --since 5m --until 0s 2>&1 | grep yoda-web || echo "No recent events"
-            
-            echo ""
-            echo "🔟 Environment Variables Check:"
-            docker inspect yoda-web --format '{{range .Config.Env}}{{println .}}{{end}}' 2>&1 | grep -E "NODE_ENV|NEXT_PUBLIC" || echo "No env vars found"
-            
-            echo ""
-            echo "════════════════════════════════════════════════════════════"
-            echo "💡 TROUBLESHOOTING TIPS:"
-            echo "────────────────────────────────────────────────────────────"
-            echo "1. Check if docker-compose.yml includes yoda-web service"
-            echo "2. Verify network 'taklip-shared-network' exists"
-            echo "3. Check if uploads directory exists: ~/yoda/uploads"
-            echo "4. Verify image was built correctly in previous step"
-            echo "5. Check container logs above for specific errors"
             echo "════════════════════════════════════════════════════════════"
             
             exit 1
