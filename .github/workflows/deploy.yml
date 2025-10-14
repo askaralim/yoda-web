@@ -82,43 +82,290 @@ jobs:
           username: ${{ secrets.ALIYUN_ECS_USER }}
           key: ${{ secrets.ALIYUN_ECS_SSH_KEY }}
           script: |
-            echo "🔐 Logging into ACR..."
-            echo "${{ secrets.ALIYUN_ACR_PASSWORD }}" | docker login ${{ secrets.ALIYUN_ACR_REGISTRY }} -u ${{ secrets.ALIYUN_ACR_USERNAME }} --password-stdin
-
-            echo "📥 Pulling latest image..."
-            docker pull ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG_LATEST }}
-
-            echo "🏷️ Tagging image for compose..."
-            docker tag ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG_LATEST }} yoda-web:latest
-
-            echo "🚀 Stopping existing containers..."
-            cd /opt/project-yoda/yoda-web
-            docker compose down yoda-web --remove-orphans || true
-
-            echo "🧹 Cleaning up old containers..."
-            docker container prune -f || true
+            echo "════════════════════════════════════════════════════════════"
+            echo "🚀 Starting Deployment Process"
+            echo "Time: $(date)"
+            echo "User: $(whoami)"
+            echo "Host: $(hostname)"
+            echo "════════════════════════════════════════════════════════════"
             
-            echo "🗑️ Force removing any existing yoda-web container..."
-            docker rm -f yoda-web || true
+            echo ""
+            echo "🔐 Step 1: Logging into ACR..."
+            echo "Registry: ${{ secrets.ALIYUN_ACR_REGISTRY }}"
+            echo "Username: ${{ secrets.ALIYUN_ACR_USERNAME }}"
+            if echo "${{ secrets.ALIYUN_ACR_PASSWORD }}" | docker login ${{ secrets.ALIYUN_ACR_REGISTRY }} -u ${{ secrets.ALIYUN_ACR_USERNAME }} --password-stdin; then
+              echo "✅ ACR login successful"
+            else
+              echo "❌ ACR login failed"
+              exit 1
+            fi
 
-            echo "🚀 Starting frontend service..."
-            docker compose up -d yoda-web
+            echo ""
+            echo "📥 Step 2: Pulling latest image..."
+            echo "Image: ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG_LATEST }}"
+            if docker pull ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG_LATEST }}; then
+              echo "✅ Image pulled successfully"
+              echo "Image details:"
+              docker images | grep yoda-web | head -5
+            else
+              echo "❌ Failed to pull image from ACR"
+              echo "Checking available images:"
+              docker images | head -10
+              exit 1
+            fi
 
-            echo "⏳ Waiting for application to start..."
-            sleep 30
+            echo ""
+            echo "🏷️ Step 3: Tagging image for compose..."
+            if docker tag ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG_LATEST }} yoda-web:latest; then
+              echo "✅ Image tagged as yoda-web:latest"
+              docker images | grep yoda-web
+            else
+              echo "❌ Failed to tag image"
+              exit 1
+            fi
 
-            echo "🏥 Checking application health..."
-            for i in {1..10}; do
-              if curl -f http://localhost:3000/api/health; then
-                echo "✅ Deployment successful!"
-                exit 0
+            echo ""
+            echo "📍 Step 4: Navigating to deployment directory..."
+            if cd /opt/project-yoda/yoda-web; then
+              echo "✅ Current directory: $(pwd)"
+              echo "📋 Files in directory:"
+              ls -la | head -20
+            else
+              echo "❌ Directory /opt/project-yoda/yoda-web does not exist!"
+              echo "Available directories:"
+              ls -la /opt/project-yoda/ || echo "/opt/project-yoda does not exist"
+              exit 1
+            fi
+
+            echo ""
+            echo "🛑 Step 5: Stopping existing containers..."
+            docker compose down yoda-web --remove-orphans || true
+            echo "📊 Checking for remaining yoda-web containers:"
+            docker ps -a | grep yoda-web || echo "✅ No yoda-web containers found"
+
+            echo ""
+            echo "🧹 Step 6: Cleaning up..."
+            docker container prune -f || true
+            docker rm -f yoda-web 2>/dev/null || echo "No yoda-web container to remove"
+
+            echo ""
+            echo "🔍 Step 7: Verifying docker-compose.yml..."
+            if [ -f docker-compose.yml ]; then
+              echo "✅ docker-compose.yml exists"
+              echo "File size: $(ls -lh docker-compose.yml | awk '{print $5}')"
+              echo ""
+              echo "📋 Checking yoda-web service configuration:"
+              if docker compose config 2>&1 | grep -A 15 yoda-web; then
+                echo "✅ yoda-web service found in compose file"
               else
-                echo "⏳ Attempt $i/10: Application not ready yet..."
+                echo "❌ yoda-web service NOT found in docker-compose.yml!"
+                echo ""
+                echo "Full docker-compose.yml content:"
+                cat docker-compose.yml
+                exit 1
+              fi
+            else
+              echo "❌ docker-compose.yml not found in $(pwd)"
+              echo "Available files:"
+              ls -la
+              exit 1
+            fi
+
+            echo ""
+            echo "🌐 Step 8: Verifying Docker network..."
+            if docker network ls | grep taklip-shared-network; then
+              echo "✅ Network taklip-shared-network exists"
+              docker network inspect taklip-shared-network --format '{{.Name}}: {{len .Containers}} containers'
+            else
+              echo "⚠️  Network taklip-shared-network not found"
+              echo "Available networks:"
+              docker network ls
+              echo "Attempting to create network..."
+              docker network create taklip-shared-network || echo "Failed to create network"
+            fi
+
+            echo ""
+            echo "📁 Step 9: Verifying volume paths..."
+            if [ -d "$HOME/yoda/uploads" ]; then
+              echo "✅ Uploads directory exists: $HOME/yoda/uploads"
+              echo "Directory size: $(du -sh $HOME/yoda/uploads 2>/dev/null || echo 'unknown')"
+              echo "File count: $(find $HOME/yoda/uploads -type f 2>/dev/null | wc -l || echo '0')"
+            else
+              echo "⚠️  Uploads directory not found: $HOME/yoda/uploads"
+              echo "Creating directory..."
+              mkdir -p $HOME/yoda/uploads || echo "Failed to create uploads directory"
+            fi
+
+            echo ""
+            echo "🚀 Step 10: Starting frontend service..."
+            echo "Command: docker compose up -d yoda-web"
+            if docker compose up -d yoda-web 2>&1; then
+              echo "✅ Docker compose command executed"
+            else
+              echo "❌ Docker compose command failed"
+              echo "Checking compose logs:"
+              docker compose logs yoda-web 2>&1 || echo "No logs"
+              exit 1
+            fi
+
+            echo ""
+            echo "⏳ Step 11: Initial wait (10 seconds)..."
+            sleep 10
+            
+            echo ""
+            echo "📊 Container status after start:"
+            if docker ps | grep yoda-web; then
+              echo "✅ Container is running"
+            else
+              echo "❌ Container is NOT running"
+              echo "All containers:"
+              docker ps -a | grep yoda-web
+            fi
+            
+            echo ""
+            echo "📋 Container inspection:"
+            CONTAINER_STATUS=$(docker inspect yoda-web --format '{{.State.Status}}' 2>/dev/null || echo "not_found")
+            CONTAINER_HEALTH=$(docker inspect yoda-web --format '{{.State.Health.Status}}' 2>/dev/null || echo "no_healthcheck")
+            echo "Status: $CONTAINER_STATUS"
+            echo "Health: $CONTAINER_HEALTH"
+            
+            echo ""
+            echo "📝 Initial container logs (last 30 lines):"
+            docker logs yoda-web --tail 30 2>&1 || echo "❌ No logs available"
+
+            echo ""
+            echo "🏥 Step 12: Health check loop (10 attempts, 10s interval)..."
+            for i in {1..10}; do
+              echo ""
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              echo "🔍 Health Check Attempt $i/10 at $(date +%H:%M:%S)"
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              
+              # Check if container exists and is running
+              if docker ps --format '{{.Names}}' | grep -q "^yoda-web$"; then
+                echo "✅ Container 'yoda-web' is running"
+                
+                # Get container details
+                UPTIME=$(docker ps --filter name=yoda-web --format '{{.Status}}')
+                echo "Uptime: $UPTIME"
+                
+                # Check health status
+                HEALTH=$(docker inspect yoda-web --format '{{.State.Health.Status}}' 2>/dev/null || echo "no_healthcheck")
+                echo "Health status: $HEALTH"
+                
+                # Try to curl health endpoint
+                echo "Testing health endpoint..."
+                if curl -f -s http://localhost:3000/api/health; then
+                  echo ""
+                  echo "✅✅✅ DEPLOYMENT SUCCESSFUL! ✅✅✅"
+                  echo ""
+                  echo "📊 Final deployment status:"
+                  docker ps | grep yoda-web
+                  echo ""
+                  echo "🎉 Application is healthy and responding!"
+                  exit 0
+                else
+                  echo "⏳ Health endpoint not responding (attempt $i/10)"
+                  echo "Curl response:"
+                  curl -v http://localhost:3000/api/health 2>&1 | grep -E "HTTP|Connection|curl:" || echo "No response"
+                  
+                  echo ""
+                  echo "Latest logs (last 10 lines):"
+                  docker logs yoda-web --tail 10 2>&1
+                fi
+              else
+                echo "❌ Container 'yoda-web' is NOT running!"
+                echo ""
+                echo "Checking all yoda-web containers:"
+                docker ps -a | grep yoda-web || echo "No yoda-web containers found at all"
+                
+                echo ""
+                echo "Container logs (if exists):"
+                docker logs yoda-web --tail 20 2>&1 || echo "Container not found"
+              fi
+              
+              if [ $i -lt 10 ]; then
+                echo "⏳ Waiting 10 seconds before next attempt..."
                 sleep 10
               fi
             done
 
-            echo "❌ Deployment failed - application did not start properly"
-            echo "📋 Container logs:"
-            docker logs yoda-web --tail 50
+            echo ""
+            echo "════════════════════════════════════════════════════════════"
+            echo "❌❌❌ DEPLOYMENT FAILED ❌❌❌"
+            echo "Application did not start properly after 10 attempts"
+            echo "════════════════════════════════════════════════════════════"
+            
+            echo ""
+            echo "📊 DIAGNOSTIC INFORMATION:"
+            echo "────────────────────────────────────────────────────────────"
+            
+            echo ""
+            echo "1️⃣ Container Status:"
+            docker ps -a | grep yoda-web || echo "❌ No yoda-web container found"
+            
+            echo ""
+            echo "2️⃣ Container Inspection (if exists):"
+            if docker inspect yoda-web >/dev/null 2>&1; then
+              echo "State:"
+              docker inspect yoda-web --format '{{json .State}}' | jq '.' 2>/dev/null || docker inspect yoda-web --format '{{json .State}}'
+              echo ""
+              echo "Network:"
+              docker inspect yoda-web --format '{{json .NetworkSettings.Networks}}' | jq '.' 2>/dev/null || echo "Network info unavailable"
+            else
+              echo "❌ Container does not exist"
+            fi
+            
+            echo ""
+            echo "3️⃣ Full Container Logs (last 100 lines):"
+            docker logs yoda-web --tail 100 2>&1 || echo "❌ No logs available"
+            
+            echo ""
+            echo "4️⃣ Docker Compose Configuration:"
+            echo "File location: $(pwd)/docker-compose.yml"
+            if [ -f docker-compose.yml ]; then
+              echo "yoda-web service config:"
+              docker compose config 2>&1 | grep -A 25 "yoda-web:" || cat docker-compose.yml | grep -A 25 "yoda-web:"
+            else
+              echo "❌ docker-compose.yml not found"
+            fi
+            
+            echo ""
+            echo "5️⃣ Network Status:"
+            docker network ls | grep taklip || echo "❌ No taklip networks found"
+            docker network inspect taklip-shared-network 2>&1 | head -30 || echo "Network not found"
+            
+            echo ""
+            echo "6️⃣ Volume Mounts:"
+            docker inspect yoda-web --format '{{json .Mounts}}' 2>&1 | jq '.' 2>/dev/null || echo "No mount info"
+            echo "Uploads directory:"
+            ls -la $HOME/yoda/uploads 2>&1 | head -10 || echo "Directory not found"
+            
+            echo ""
+            echo "7️⃣ Port Status:"
+            netstat -tlnp 2>/dev/null | grep 3000 || ss -tlnp 2>/dev/null | grep 3000 || echo "Port 3000 not in use"
+            
+            echo ""
+            echo "8️⃣ Docker System Info:"
+            docker info 2>&1 | grep -E "Server Version|Storage Driver|Logging Driver|Cgroup|CPUs|Total Memory" || echo "Docker info unavailable"
+            
+            echo ""
+            echo "9️⃣ Recent Docker Events:"
+            docker events --since 5m --until 0s 2>&1 | grep yoda-web || echo "No recent events"
+            
+            echo ""
+            echo "🔟 Environment Variables Check:"
+            docker inspect yoda-web --format '{{range .Config.Env}}{{println .}}{{end}}' 2>&1 | grep -E "NODE_ENV|NEXT_PUBLIC" || echo "No env vars found"
+            
+            echo ""
+            echo "════════════════════════════════════════════════════════════"
+            echo "💡 TROUBLESHOOTING TIPS:"
+            echo "────────────────────────────────────────────────────────────"
+            echo "1. Check if docker-compose.yml includes yoda-web service"
+            echo "2. Verify network 'taklip-shared-network' exists"
+            echo "3. Check if uploads directory exists: ~/yoda/uploads"
+            echo "4. Verify image was built correctly in previous step"
+            echo "5. Check container logs above for specific errors"
+            echo "════════════════════════════════════════════════════════════"
+            
             exit 1

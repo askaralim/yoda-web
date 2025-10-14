@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { brandApi } from '@/lib/api';
 import { getImageUrl } from '@/lib/utils';
+import { ItemDTO } from '@/types';
 
 interface BrandItemsProps {
   brandId: number;
