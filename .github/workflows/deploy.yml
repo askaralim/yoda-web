@@ -86,7 +86,9 @@ jobs:
           username: ${{ secrets.ALIYUN_ECS_USER }}
           key: ${{ secrets.ALIYUN_ECS_SSH_KEY }}
           command_timeout: 30m
+          script_stop: true
           script: |
+            #!/bin/bash
             # Function to handle errors
             error_handler() {
               local line_no=$1
