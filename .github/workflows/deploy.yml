@@ -85,10 +85,13 @@ jobs:
           host: ${{ secrets.ALIYUN_ECS_HOST }}
           username: ${{ secrets.ALIYUN_ECS_USER }}
           key: ${{ secrets.ALIYUN_ECS_SSH_KEY }}
+          timeout: 30m
           command_timeout: 30m
           script_stop: true
           script: |
             #!/bin/bash
+            # Keep SSH connection alive
+            export TERM=xterm
             # Function to handle errors
             error_handler() {
               local line_no=$1
@@ -226,8 +229,8 @@ jobs:
             fi
 
             echo ""
-            echo "⏳ Step 11: Initial wait (10 seconds)..."
-            sleep 10
+            echo "⏳ Step 11: Initial wait (5 seconds)..."
+            sleep 5
             
             echo ""
             echo "📊 Container status after start:"
@@ -251,7 +254,7 @@ jobs:
             docker logs yoda-web --tail 30 2>&1 || echo "❌ No logs available"
 
             echo ""
-            echo "🏥 Step 12: Health check loop (10 attempts, 10s interval)..."
+            echo "🏥 Step 12: Health check loop (10 attempts, 5s interval)..."
             for i in {1..10}; do
               echo ""
               echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -302,8 +305,8 @@ jobs:
               fi
               
               if [ $i -lt 10 ]; then
-                echo "⏳ Waiting 10 seconds before next attempt..."
-                sleep 10
+                echo "⏳ Waiting 5 seconds before next attempt..."
+                sleep 5
               fi
             done
 
