@@ -86,69 +86,37 @@ jobs:
           host: ${{ secrets.ALIYUN_ECS_HOST }}
           username: ${{ secrets.ALIYUN_ECS_USER }}
           key: ${{ secrets.ALIYUN_ECS_SSH_KEY }}
-          timeout: 30m
-          command_timeout: 30m
-          script_stop: true
+          # timeout: 30m
+          # command_timeout: 30m
+          # script_stop: true
           script: |
-            #!/bin/bash
-            # Keep SSH connection alive
-            export TERM=xterm
-            # Function to handle errors
-            error_handler() {
-              local line_no=$1
-              echo ""
-              echo "════════════════════════════════════════════════════════════"
-              echo "❌ ERROR at line $line_no"
-              echo "════════════════════════════════════════════════════════════"
-              echo "Last command failed. Check output above for details."
-              exit 1
-            }
-            
-            trap 'error_handler ${LINENO}' ERR
-            set -e  # Exit on error
-            set -o pipefail  # Catch errors in pipes
-            
-            echo "════════════════════════════════════════════════════════════"
-            echo "🚀 Deployment Started: $(date '+%Y-%m-%d %H:%M:%S')"
-            echo "════════════════════════════════════════════════════════════"
             echo ""
             echo "🔐 Step 1: Logging into ACR..."
-            if echo "${{ secrets.ALIYUN_ACR_PASSWORD }}" | docker login ${{ secrets.ALIYUN_ACR_REGISTRY }} -u ${{ secrets.ALIYUN_ACR_USERNAME }} --password-stdin 2>&1 | grep -q "Login Succeeded"; then
-              echo "✅ ACR login successful"
-            else
-              echo "❌ ACR login failed"
-              echo "Error: Unable to authenticate with ACR"
-              exit 1
-            fi
+            echo "${{ secrets.ALIYUN_ACR_PASSWORD }}" | docker login ${{ secrets.ALIYUN_ACR_REGISTRY }} -u ${{ secrets.ALIYUN_ACR_USERNAME }} --password-stdin
 
             echo ""
             echo "📥 Step 2: Pulling latest image..."
-            echo "Image: ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG_LATEST }}"
-            if docker pull ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG_LATEST }}; then
-              echo "✅ Image pulled successfully"
-              echo "Image details:"
-              docker images | grep yoda-web | head -5
-            else
-              echo "❌ Failed to pull image from ACR"
-              echo "Checking available images:"
-              docker images | head -10
-              exit 1
-            fi
+            docker pull ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG_LATEST }}
 
             echo ""
             echo "🏷️ Step 3: Tagging image for compose..."
-            if docker tag ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG_LATEST }} yoda-web:latest; then
+            docker tag ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG_LATEST }} yoda-web:latest
+            if docker images | grep yoda-web; then
               echo "✅ Image tagged as yoda-web:latest"
               docker images | grep yoda-web
             else
               echo "❌ Failed to tag image"
+              docker images | grep yoda-web
               exit 1
             fi
 
             echo ""
             echo "📍 Step 4: Navigating to deployment directory..."
-            if cd /opt/project-yoda/yoda-web; then
+            cd /opt/project-yoda/yoda-web
+            if [ -d "yoda-web" ]; then
               echo "✅ Current directory: $(pwd)"
+              echo "📋 Files in directory:"
+              ls -la | head -20
               echo "📋 Files in directory:"
               ls -la | head -20
             else
@@ -193,41 +161,9 @@ jobs:
             fi
 
             echo ""
-            echo "🌐 Step 8: Verifying Docker network..."
-            if docker network ls | grep taklip-shared-network; then
-              echo "✅ Network taklip-shared-network exists"
-              docker network inspect taklip-shared-network --format '{{.Name}}: {{len .Containers}} containers'
-            else
-              echo "⚠️  Network taklip-shared-network not found"
-              echo "Available networks:"
-              docker network ls
-              echo "Attempting to create network..."
-              docker network create taklip-shared-network || echo "Failed to create network"
-            fi
-
-            echo ""
-            echo "📁 Step 9: Verifying volume paths..."
-            if [ -d "$HOME/yoda/uploads" ]; then
-              echo "✅ Uploads directory exists: $HOME/yoda/uploads"
-              echo "Directory size: $(du -sh $HOME/yoda/uploads 2>/dev/null || echo 'unknown')"
-              echo "File count: $(find $HOME/yoda/uploads -type f 2>/dev/null | wc -l || echo '0')"
-            else
-              echo "⚠️  Uploads directory not found: $HOME/yoda/uploads"
-              echo "Creating directory..."
-              mkdir -p $HOME/yoda/uploads || echo "Failed to create uploads directory"
-            fi
-
-            echo ""
             echo "🚀 Step 10: Starting frontend service..."
             echo "Command: docker compose up -d yoda-web"
-            if docker compose up -d yoda-web 2>&1; then
-              echo "✅ Docker compose command executed"
-            else
-              echo "❌ Docker compose command failed"
-              echo "Checking compose logs:"
-              docker compose logs yoda-web 2>&1 || echo "No logs"
-              exit 1
-            fi
+            docker compose up -d yoda-web
 
             echo ""
             echo "⏳ Step 11: Initial wait (5 seconds)..."
