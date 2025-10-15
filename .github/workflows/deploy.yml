@@ -101,91 +101,29 @@ jobs:
             echo ""
             echo "🏷️ Step 3: Tagging image for compose..."
             docker tag ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG_LATEST }} yoda-web:latest
-            if docker images | grep yoda-web; then
-              echo "✅ Image tagged as yoda-web:latest"
-              docker images | grep yoda-web
-            else
-              echo "❌ Failed to tag image"
-              docker images | grep yoda-web
-              exit 1
-            fi
 
             echo ""
             echo "📍 Step 4: Navigating to deployment directory..."
             cd /opt/project-yoda/yoda-web
-            if [ -d "yoda-web" ]; then
-              echo "✅ Current directory: $(pwd)"
-              echo "📋 Files in directory:"
-              ls -la | head -20
-              echo "📋 Files in directory:"
-              ls -la | head -20
-            else
-              echo "❌ Directory /opt/project-yoda/yoda-web does not exist!"
-              echo "Available directories:"
-              ls -la /opt/project-yoda/ || echo "/opt/project-yoda does not exist"
-              exit 1
-            fi
 
             echo ""
             echo "🛑 Step 5: Stopping existing containers..."
-            docker compose down yoda-web --remove-orphans || true
-            echo "📊 Checking for remaining yoda-web containers:"
-            docker ps -a | grep yoda-web || echo "✅ No yoda-web containers found"
+            docker compose down --remove-orphans || true
 
             echo ""
             echo "🧹 Step 6: Cleaning up..."
             docker container prune -f || true
-            docker rm -f yoda-web 2>/dev/null || echo "No yoda-web container to remove"
-
-            echo ""
-            echo "🔍 Step 7: Verifying docker-compose.yml..."
-            if [ -f docker-compose.yml ]; then
-              echo "✅ docker-compose.yml exists"
-              echo "File size: $(ls -lh docker-compose.yml | awk '{print $5}')"
-              echo ""
-              echo "📋 Checking yoda-web service configuration:"
-              if docker compose config 2>&1 | grep -A 15 yoda-web; then
-                echo "✅ yoda-web service found in compose file"
-              else
-                echo "❌ yoda-web service NOT found in docker-compose.yml!"
-                echo ""
-                echo "Full docker-compose.yml content:"
-                cat docker-compose.yml
-                exit 1
-              fi
-            else
-              echo "❌ docker-compose.yml not found in $(pwd)"
-              echo "Available files:"
-              ls -la
-              exit 1
-            fi
+            docker rm -f yoda-web || true
 
             echo ""
             echo "🚀 Step 10: Starting frontend service..."
             echo "Command: docker compose up -d yoda-web"
-            docker compose up -d yoda-web
+            docker compose up -d
 
             echo ""
             echo "⏳ Step 11: Initial wait (5 seconds)..."
-            sleep 5
-            
-            echo ""
-            echo "📊 Container status after start:"
-            if docker ps | grep yoda-web; then
-              echo "✅ Container is running"
-            else
-              echo "❌ Container is NOT running"
-              echo "All containers:"
-              docker ps -a | grep yoda-web
-            fi
-            
-            echo ""
-            echo "📋 Container inspection:"
-            CONTAINER_STATUS=$(docker inspect yoda-web --format '{{.State.Status}}' 2>/dev/null || echo "not_found")
-            CONTAINER_HEALTH=$(docker inspect yoda-web --format '{{.State.Health.Status}}' 2>/dev/null || echo "no_healthcheck")
-            echo "Status: $CONTAINER_STATUS"
-            echo "Health: $CONTAINER_HEALTH"
-            
+            sleep 10
+
             echo ""
             echo "📝 Initial container logs (last 30 lines):"
             docker logs yoda-web --tail 30 2>&1 || echo "❌ No logs available"
@@ -193,98 +131,19 @@ jobs:
             echo ""
             echo "🏥 Step 12: Health check loop (10 attempts, 5s interval)..."
             for i in {1..10}; do
-              echo ""
-              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-              echo "🔍 Health Check Attempt $i/10 at $(date +%H:%M:%S)"
-              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-              
-              # Check if container exists and is running
-              if docker ps --format '{{.Names}}' | grep -q "^yoda-web$"; then
-                echo "✅ Container 'yoda-web' is running"
-                
-                # Get container details
-                UPTIME=$(docker ps --filter name=yoda-web --format '{{.Status}}')
-                echo "Uptime: $UPTIME"
-                
-                # Check health status
-                HEALTH=$(docker inspect yoda-web --format '{{.State.Health.Status}}' 2>/dev/null || echo "no_healthcheck")
-                echo "Health status: $HEALTH"
-                
                 # Try to curl health endpoint
                 echo "Testing health endpoint..."
-                if curl -f -s http://localhost:3000/api/health; then
+                if curl -f http://localhost:3000/api/health; then
                   echo ""
                   echo "✅✅✅ DEPLOYMENT SUCCESSFUL! ✅✅✅"
-                  echo ""
-                  echo "📊 Final deployment status:"
-                  docker ps | grep yoda-web
-                  echo ""
-                  echo "🎉 Application is healthy and responding!"
                   exit 0
                 else
                   echo "⏳ Health endpoint not responding (attempt $i/10)"
-                  echo "Curl response:"
-                  curl -v http://localhost:3000/api/health 2>&1 | grep -E "HTTP|Connection|curl:" || echo "No response"
-                  
-                  echo ""
-                  echo "Latest logs (last 10 lines):"
-                  docker logs yoda-web --tail 10 2>&1
+                  sleep 5
                 fi
-              else
-                echo "❌ Container 'yoda-web' is NOT running!"
-                echo ""
-                echo "Checking all yoda-web containers:"
-                docker ps -a | grep yoda-web || echo "No yoda-web containers found at all"
-                
-                echo ""
-                echo "Container logs (if exists):"
-                docker logs yoda-web --tail 20 2>&1 || echo "Container not found"
-              fi
-              
-              if [ $i -lt 10 ]; then
-                echo "⏳ Waiting 5 seconds before next attempt..."
-                sleep 5
-              fi
             done
 
-            echo ""
-            echo "════════════════════════════════════════════════════════════"
-            echo "❌❌❌ DEPLOYMENT FAILED ❌❌❌"
-            echo "Application did not start properly after 10 attempts"
-            echo "════════════════════════════════════════════════════════════"
-            
-            echo ""
-            echo "📊 QUICK DIAGNOSTICS:"
-            echo "────────────────────────────────────────────────────────────"
-            
-            # Container status
-            if docker ps -a --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep yoda-web; then
-              echo "✅ Container found"
-              
-              # Get container logs if exists
-              echo ""
-              echo "📋 Container Logs (last 50 lines):"
-              docker logs yoda-web --tail 50 2>&1 || echo "No logs"
-              
-              # Check if it's running
-              if docker ps --format '{{.Names}}' | grep -q "^yoda-web$"; then
-                echo "✅ Container is running"
-              else
-                echo "❌ Container stopped. Exit code:"
-                docker inspect yoda-web --format '{{.State.ExitCode}}' 2>/dev/null || echo "unknown"
-              fi
-            else
-              echo "❌ No yoda-web container found"
-              echo ""
-              echo "Checking docker-compose.yml:"
-              if [ -f docker-compose.yml ]; then
-                cat docker-compose.yml | grep -A 10 "yoda-web:" || echo "No yoda-web service in compose file"
-              else
-                echo "❌ docker-compose.yml not found in $(pwd)"
-              fi
-            fi
-            
-            echo ""
-            echo "════════════════════════════════════════════════════════════"
-            
+            echo "❌ Deployment failed - application did not start properly"
+            echo "📋 Container logs:"
+            docker logs yoda-web --tail 50
             exit 1
