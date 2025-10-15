@@ -28,27 +28,6 @@ jobs:
       - name: Check out repository code
         uses: actions/checkout@v4
       
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          cache: 'npm'
-      
-      # - name: Install dependencies
-      #   run: npm ci
-      
-      # - name: Run linting
-      #   run: npm run lint
-      
-      # - name: Build application
-      #   run: npm run build
-      #   env:
-      #     NEXT_PUBLIC_API_URL: http://www.taklip.com/api/v1
-      #     NEXT_PUBLIC_APP_URL: http://www.taklip.com
-
-      # - name: Set up QEMU (for multi-platform builds)
-      #   uses: docker/setup-qemu-action@v3
-        
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -59,15 +38,17 @@ jobs:
           username: ${{ secrets.ALIYUN_ACR_USERNAME }}
           password: ${{ secrets.ALIYUN_ACR_PASSWORD }}
 
-      # - name: Build and push multi-platform Docker image to ACR
       - name: Build and push Docker image to ACR
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile
-          # platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: true
           tags: ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG_LATEST }}
+          build-args: |
+            NEXT_PUBLIC_API_URL=http://www.taklip.com/api/v1
+            NEXT_PUBLIC_APP_URL=http://www.taklip.com
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -125,22 +106,15 @@ jobs:
             sleep 10
 
             echo ""
-            echo "📝 Initial container logs (last 30 lines):"
-            docker logs yoda-web --tail 30 2>&1 || echo "❌ No logs available"
-
-            echo ""
             echo "🏥 Step 12: Health check loop (10 attempts, 5s interval)..."
             for i in {1..10}; do
-                # Try to curl health endpoint
-                echo "Testing health endpoint..."
-                if curl -f http://localhost:3000/api/health; then
-                  echo ""
-                  echo "✅✅✅ DEPLOYMENT SUCCESSFUL! ✅✅✅"
-                  exit 0
-                else
-                  echo "⏳ Health endpoint not responding (attempt $i/10)"
-                  sleep 5
-                fi
+              if curl -f http://localhost:3000/api/health; then
+                echo "✅✅✅ DEPLOYMENT SUCCESSFUL! ✅✅✅"
+                exit 0
+              else
+                echo "⏳ Health endpoint not responding (attempt $i/10)"
+                sleep 5
+              fi
             done
 
             echo "❌ Deployment failed - application did not start properly"
