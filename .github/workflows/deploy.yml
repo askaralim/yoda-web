@@ -43,12 +43,13 @@ jobs:
         with:
           context: .
           file: ./Dockerfile
-          # platforms: linux/amd64
+          platforms: linux/amd64
           push: true
           tags: ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG_LATEST }}
           build-args: |
             NEXT_PUBLIC_API_URL=http://www.taklip.com/api/v1
             NEXT_PUBLIC_APP_URL=http://www.taklip.com
+          no-cache: true
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
