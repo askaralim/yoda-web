@@ -108,11 +108,20 @@ jobs:
             echo ""
             echo "🏥 Step 12: Health check loop (10 attempts, 5s interval)..."
             for i in {1..10}; do
-              if curl -f http://localhost:3000/api/health; then
+              # Check from inside the container since ports aren't exposed to host
+              if docker exec yoda-web wget -q -O- http://localhost:3000/api/health 2>/dev/null | grep -q "OK"; then
                 echo "✅✅✅ DEPLOYMENT SUCCESSFUL! ✅✅✅"
+                echo "📊 Container status:"
+                docker ps | grep yoda-web
+                echo ""
+                echo "🎉 Application is healthy and responding!"
                 exit 0
               else
                 echo "⏳ Health endpoint not responding (attempt $i/10)"
+                if [ $i -eq 1 ] || [ $i -eq 5 ]; then
+                  echo "📋 Container logs (last 10 lines):"
+                  docker logs yoda-web --tail 10 2>&1
+                fi
                 sleep 5
               fi
             done

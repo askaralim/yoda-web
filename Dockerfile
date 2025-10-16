@@ -1,5 +1,5 @@
 # Multi-stage build for production
-FROM node:18-alpine AS base
+FROM node:20-alpine AS base
 
 # Install dependencies only when needed
 FROM base AS deps
@@ -23,7 +23,6 @@ ARG NEXT_PUBLIC_APP_URL=http://www.taklip.com
 # Set environment variables for build
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
-ENV NEXT_TELEMETRY_DISABLED=1
 
 # Build the application
 RUN npm run build
